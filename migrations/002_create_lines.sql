@@ -1,0 +1,21 @@
+-- Migration: Create lines table
+-- Created: 2026-04-04
+
+CREATE TYPE line_sense_enum AS ENUM ('OUTBOUND', 'RETURN');
+
+CREATE TABLE IF NOT EXISTS lines (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    code VARCHAR(255) NOT NULL,
+    name VARCHAR(255),
+    color VARCHAR(255),
+    geo_json JSONB,
+    sense line_sense_enum DEFAULT 'OUTBOUND',
+    parent_line_id UUID REFERENCES lines(id) ON DELETE SET NULL,
+    syndicate VARCHAR(255),
+    objectid INTEGER,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lines_code ON lines(code);
+CREATE INDEX IF NOT EXISTS idx_lines_parent_line_id ON lines(parent_line_id);
