@@ -268,7 +268,7 @@ Costo transferencia: 500m + tiempo espera estimado
 # Database
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
-DATABASE_NAME=transporte_scz
+DATABASE_NAME=tucromi
 DATABASE_USER=postgres
 DATABASE_PASSWORD=postgres
 

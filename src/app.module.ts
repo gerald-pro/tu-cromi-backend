@@ -11,6 +11,8 @@ import { LinesModule } from './modules/lines/lines.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SearchModule } from './modules/search/search.module';
+import { TransfersModule } from './modules/transfers/transfers.module';
+import { CommandsModule } from './commands/commands.module';
 
 @Module({
   imports: [
@@ -23,17 +25,19 @@ import { SearchModule } from './modules/search/search.module';
       type: 'postgres',
       host: process.env.DATABASE_HOST || 'localhost',
       port: parseInt(process.env.DATABASE_PORT || '5432', 10),
-      database: process.env.DATABASE_NAME || 'transporte_scz',
+      database: process.env.DATABASE_NAME || 'tucromi',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
       autoLoadEntities: true,
-      synchronize: true,
+      synchronize: false,
     }),
+    CommandsModule,
     AuthModule,
     UsersModule,
     LinesModule,
     FavoritesModule,
     SearchModule,
+    TransfersModule,
   ],
   providers: [
     {

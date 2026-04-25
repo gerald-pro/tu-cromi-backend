@@ -1,9 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as fs from 'fs';
+import * as path from 'path';
 import { Line } from '../../modules/lines/line.entity';
 import { LineSense } from '../../modules/lines/line-sense.enum';
-import geoJsonData from '../../data/rutas_scz.geojson';
 
 interface GeoJsonFeature {
   type: string;
@@ -31,21 +32,28 @@ interface GeoJsonData {
 
 @Injectable()
 export class LinesSeeder {
-  private readonly logger = new Logger(LinesSeeder.name);
-
   constructor(
     @InjectRepository(Line)
     private readonly lineRepository: Repository<Line>,
   ) {}
 
-  async seed(): Promise<void> {
+  async run(force = false): Promise<void> {
+    const geoJsonPath = path.join(__dirname, '../../data/rutas_scz.geojson');
+    const geoJsonData = JSON.parse(fs.readFileSync(geoJsonPath, 'utf-8'));
+
     const existingLines = await this.lineRepository.count();
-    if (existingLines > 0) {
-      this.logger.log('Lines already seeded, skipping...');
+
+    if (existingLines > 0 && !force) {
+      console.log('Lines already seeded, skipping. Use --force to reseed.');
       return;
     }
 
-    this.logger.log('Seeding lines from GeoJSON...');
+    if (force && existingLines > 0) {
+      console.log(`Deleting ${existingLines} existing lines...`);
+      await this.lineRepository.query('DELETE FROM lines');
+    }
+
+    console.log('Seeding lines from GeoJSON...');
     const data = geoJsonData as unknown as GeoJsonData;
     const lines: Partial<Line>[] = [];
 
@@ -66,13 +74,37 @@ export class LinesSeeder {
     }
 
     const savedLines = await this.lineRepository.save(lines);
-    this.logger.log(`Created ${savedLines.length} lines`);
+    console.log(`Created ${savedLines.length} lines`);
 
     await this.linkOppositeLines(savedLines);
+    await this.buildGeometryColumn();
+  }
+
+  private async buildGeometryColumn(): Promise<void> {
+    const [{ exists }]: [{ exists: boolean }] = await this.lineRepository
+      .query(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'lines' AND column_name = 'geom'
+      ) as exists
+    `);
+
+    if (!exists) {
+      console.warn('geom column not found, skipping geometry population');
+      return;
+    }
+
+    console.log('Populating geometry column...');
+    await this.lineRepository.query(`
+      UPDATE lines 
+      SET geom = ST_GeomFromGeoJSON(geo_json::text)
+      WHERE geo_json IS NOT NULL AND geom IS NULL
+    `);
+    console.log('Geometry column populated');
   }
 
   private async linkOppositeLines(lines: Line[]): Promise<void> {
-    this.logger.log('Linking opposite lines...');
+    console.log('Linking opposite lines...');
 
     const lineMap = new Map<string, Line[]>();
     for (const line of lines) {
@@ -99,6 +131,6 @@ export class LinesSeeder {
     }
 
     await this.lineRepository.save(updates);
-    this.logger.log(`Linked ${updates.length / 2} pairs of opposite lines`);
+    console.log(`Linked ${updates.length / 2} pairs of opposite lines`);
   }
 }

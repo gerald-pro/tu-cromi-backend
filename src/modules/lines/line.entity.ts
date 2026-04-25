@@ -29,6 +29,15 @@ export class Line {
   geoJson: object;
 
   @Column({
+    name: 'geom',
+    type: 'geometry',
+    spatialFeatureType: 'MultiLineString',
+    srid: 4326,
+    nullable: true,
+  })
+  geom: object;
+
+  @Column({
     type: 'enum',
     enum: LineSense,
     default: LineSense.OUTBOUND,

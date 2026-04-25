@@ -4,7 +4,10 @@ import {
   Column,
   CreateDateColumn,
   Index,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
+import { Line } from '../lines/line.entity';
 
 @Entity('line_transfers')
 @Index(['lineAId', 'lineBId'])
@@ -16,8 +19,16 @@ export class LineTransfer {
   @Column({ name: 'line_a_id' })
   lineAId: string;
 
+  @ManyToOne(() => Line, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'line_a_id' })
+  lineA: Line;
+
   @Column({ name: 'line_b_id' })
   lineBId: string;
+
+  @ManyToOne(() => Line, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'line_b_id' })
+  lineB: Line;
 
   @Column({ type: 'float', name: 'point_a_lng' })
   pointALng: number;
