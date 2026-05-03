@@ -2,10 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Line } from '../lines/line.entity';
-import {
-  TransferCacheService,
-  TransferNode,
-} from '../transfers/transfer-cache.service';
+import { LineTransfer } from '../transfers/line-transfer.entity';
+import { TransferCacheService } from '../transfers/transfer-cache.service';
 import { SearchRouteDto } from './dto';
 
 // ─── Umbrales ────────────────────────────────────────────────────────────────
@@ -15,7 +13,9 @@ const MAX_WALK_DESTINATION = 400;
 const MAX_WALK_TRANSFER = 300;
 const WALK_SPEED = 50; // metros por minuto
 const RIDE_SPEED = 250; // metros por minuto
-const MAX_RESULTS = 5;
+const MAX_RESULTS = 10;
+const IMPROVEMENT_THRESHOLD_PERCENT = 0.1;
+const IMPROVEMENT_THRESHOLD_MIN = 60; // 1 minuto en segundos
 
 // ─── Interfaces públicas ─────────────────────────────────────────────────────
 
@@ -56,6 +56,18 @@ interface CandidateLine {
   alightDistance: number;
 }
 
+interface TransferNode {
+  lineAId: string;
+  lineBId: string;
+  pointAIndex: number;
+  pointALng: number;
+  pointALat: number;
+  pointBIndex: number;
+  pointBLng: number;
+  pointBLat: number;
+  walkDistance: number;
+}
+
 interface LineRow {
   id: string;
   code: string;
@@ -64,32 +76,27 @@ interface LineRow {
   geo_json: { type: string; coordinates: number[][][] };
 }
 
-interface TransferRow {
-  line_a_id: string;
-  line_b_id: string;
-  point_a_index: number;
-  point_a_lng: number;
-  point_a_lat: number;
-  point_b_index: number;
-  point_b_lng: number;
-  point_b_lat: number;
-  walk_distance: number;
-}
-
 @Injectable()
 export class SearchService {
   constructor(
     @InjectRepository(Line)
     private readonly lineRepository: Repository<Line>,
+    @InjectRepository(LineTransfer)
+    private readonly transferRepository: Repository<LineTransfer>,
     private readonly transferCache: TransferCacheService,
     private readonly dataSource: DataSource,
   ) {}
 
   // ─── Entry point ───────────────────────────────────────────────────────────
 
-  async search(dto: SearchRouteDto): Promise<{ options: JourneyOption[] }> {
+  async search(dto: SearchRouteDto): Promise<JourneyOption[]> {
     const origin = this.parseCoordinates(dto.origin);
     const destination = this.parseCoordinates(dto.destination);
+    const includePolylines = dto.includePolylines !== false;
+
+    console.log('=== SEARCH DEBUG ===');
+    console.log('Origin:', origin);
+    console.log('Destination:', destination);
 
     // 1. Filtrado geográfico
     const originCandidates = await this.findCandidateLines(
@@ -104,7 +111,7 @@ export class SearchService {
     );
 
     if (originCandidates.length === 0 || destCandidates.length === 0) {
-      return { options: [] };
+      return [];
     }
 
     const destCandidateIds = new Set(destCandidates.map((l) => l.id));
@@ -119,31 +126,47 @@ export class SearchService {
       destCandidateMap,
       origin,
       destination,
+      includePolylines,
     );
     options.push(...directRoutes);
 
     // 3. Rutas con 1 trasbordo
-    const oneTransferRoutes = await this.buildOneTransferRoutes(
+    const oneTransferRoutes = this.buildOneTransferRoutes(
       originCandidates,
       destCandidateIds,
       destCandidateMap,
       origin,
       destination,
+      includePolylines,
     );
     options.push(...oneTransferRoutes);
 
     // 4. Rutas con 2 trasbordos
-    const twoTransferRoutes = await this.buildTwoTransferRoutes(
+    const twoTransferRoutes = this.buildTwoTransferRoutes(
       originCandidates,
       destCandidateIds,
       destCandidateMap,
       origin,
       destination,
+      includePolylines,
     );
     options.push(...twoTransferRoutes);
 
     // 5. Ranking y retorno
-    return { options: this.rankAndSlice(options) };
+    const results = this.rankAndSlice(options);
+    console.log('=== RESULTS ===');
+    console.log(`Total options before filtering: ${options.length}`);
+    console.log(
+      `Direct routes: ${options.filter((o) => o.transfers === 0).length}`,
+    );
+    console.log(
+      `1-transfer routes: ${options.filter((o) => o.transfers === 1).length}`,
+    );
+    console.log(
+      `2-transfer routes: ${options.filter((o) => o.transfers === 2).length}`,
+    );
+    console.log(`Final results after ranking: ${results.length}`);
+    return results;
   }
 
   // ─── Step 1: Filtrado geográfico ───────────────────────────────────────────
@@ -153,7 +176,6 @@ export class SearchService {
     target: [number, number],
     radiusMeters: number,
   ): Promise<CandidateLine[]> {
-    // PostGIS filtra líneas dentro del radio usando el índice GIST
     const rows: LineRow[] = await this.dataSource.query(
       `
       SELECT l.id, l.code, l.name, l.color, l.geo_json
@@ -167,6 +189,10 @@ export class SearchService {
       [near[0], near[1], radiusMeters],
     );
 
+    console.log(
+      `[CANDIDATES] Found ${rows.length} lines within ${radiusMeters}m of point [${near[0]}, ${near[1]}]`,
+    );
+
     const candidates: CandidateLine[] = [];
 
     for (const row of rows) {
@@ -177,9 +203,16 @@ export class SearchService {
       const alightResult = this.findClosestPoint(polyline, target);
 
       if (!boardResult || !alightResult) continue;
+      if (boardResult.distance > radiusMeters) {
+        console.log(
+          `[CANDIDATES] Line ${row.code}: board distance ${Math.round(boardResult.distance)}m > ${radiusMeters}m, skipping`,
+        );
+        continue;
+      }
 
-      // Validar distancia de caminata al punto de abordaje
-      if (boardResult.distance > radiusMeters) continue;
+      console.log(
+        `[CANDIDATES] Line ${row.code}: boardIndex=${boardResult.index} (${Math.round(boardResult.distance)}m), alightIndex=${alightResult.index} (${Math.round(alightResult.distance)}m)`,
+      );
 
       candidates.push({
         id: row.id,
@@ -207,25 +240,88 @@ export class SearchService {
     destCandidateMap: Map<string, CandidateLine>,
     origin: [number, number],
     destination: [number, number],
+    includePolylines: boolean,
   ): JourneyOption[] {
     const options: JourneyOption[] = [];
 
+    console.log('=== DIRECT ROUTES DEBUG ===');
+    console.log(
+      'Origin candidates:',
+      originCandidates.map((c) => ({
+        id: c.id,
+        code: c.code,
+        boardIndex: c.boardIndex,
+        boardDistance: Math.round(c.boardDistance),
+        alightIndex: c.alightIndex,
+        alightDistance: Math.round(c.alightDistance),
+      })),
+    );
+    console.log(
+      'Destination candidates:',
+      Array.from(destCandidateMap.values()).map((c) => ({
+        id: c.id,
+        code: c.code,
+        boardIndex: c.boardIndex,
+        boardDistance: Math.round(c.boardDistance),
+        alightIndex: c.alightIndex,
+        alightDistance: Math.round(c.alightDistance),
+      })),
+    );
+
     for (const originLine of originCandidates) {
       // La línea debe aparecer también en los candidatos de destino
-      if (!destCandidateIds.has(originLine.id)) continue;
+      if (!destCandidateIds.has(originLine.id)) {
+        console.log(
+          `[SKIP] Line ${originLine.code} (${originLine.id}): not in destination candidates`,
+        );
+        continue;
+      }
 
       const destLine = destCandidateMap.get(originLine.id)!;
 
-      // Validar dirección: el abordaje debe ocurrir antes del descenso
-      if (originLine.boardIndex >= destLine.alightIndex) continue;
+      console.log(
+        `[CHECK] Line ${originLine.code}: originLine.boardIndex=${originLine.boardIndex}, destLine.boardIndex=${destLine.boardIndex}, originLine.alightIndex=${originLine.alightIndex}, destLine.alightIndex=${destLine.alightIndex}`,
+      );
+
+      // Determinar dirección real de viaje
+      const goingForward = originLine.boardIndex < originLine.alightIndex;
+
+      // Validar que destino esté después del origen en dirección de viaje
+      if (goingForward) {
+        if (originLine.boardIndex >= destLine.boardIndex) {
+          console.log(
+            `[FILTERED] Line ${originLine.code}: direction check failed (${originLine.boardIndex} >= ${destLine.boardIndex})`,
+          );
+          continue;
+        }
+      } else {
+        if (originLine.boardIndex <= destLine.boardIndex) {
+          console.log(
+            `[FILTERED] Line ${originLine.code}: direction check failed (${originLine.boardIndex} <= ${destLine.boardIndex})`,
+          );
+          continue;
+        }
+      }
 
       // Validar distancia de caminata al destino
-      if (destLine.alightDistance > MAX_WALK_DESTINATION) continue;
+      if (destLine.boardDistance > MAX_WALK_DESTINATION) {
+        console.log(
+          `[FILTERED] Line ${originLine.code}: destination walk too far (${Math.round(destLine.boardDistance)}m > ${MAX_WALK_DESTINATION}m)`,
+        );
+        continue;
+      }
 
-      const ridePolyline = originLine.polyline.slice(
-        originLine.boardIndex,
-        destLine.alightIndex + 1,
-      );
+      console.log(`[ACCEPTED] Line ${originLine.code}: direct route accepted`);
+
+      // Slice correcto según dirección
+      const ridePolyline = goingForward
+        ? originLine.polyline.slice(
+            originLine.boardIndex,
+            destLine.boardIndex + 1,
+          )
+        : originLine.polyline
+            .slice(destLine.boardIndex, originLine.boardIndex + 1)
+            .reverse();
       const rideDistance = this.calculatePolylineDistance(ridePolyline);
 
       const legs: JourneyLeg[] = [];
@@ -237,28 +333,26 @@ export class SearchService {
           to: originLine.boardPoint,
           distance: Math.round(originLine.boardDistance),
         });
-        // corregir el from con el origen real
-        legs[0].from = this.getOriginFromCandidate(originLine);
       }
 
       legs.push({
         type: 'ride',
         from: originLine.boardPoint,
-        to: destLine.alightPoint,
+        to: destLine.boardPoint,
         distance: Math.round(rideDistance),
         lineId: originLine.id,
         lineCode: originLine.code,
         lineName: originLine.name,
         lineColor: originLine.color,
-        polyline: ridePolyline,
+        ...(includePolylines && { polyline: ridePolyline }),
       });
 
-      if (destLine.alightDistance > 0) {
+      if (destLine.boardDistance > 0) {
         legs.push({
           type: 'walk',
-          from: destLine.alightPoint,
+          from: destLine.boardPoint,
           to: destination,
-          distance: Math.round(destLine.alightDistance),
+          distance: Math.round(destLine.boardDistance),
         });
       }
 
@@ -270,13 +364,14 @@ export class SearchService {
 
   // ─── Step 3: Rutas con 1 trasbordo ────────────────────────────────────────
 
-  private async buildOneTransferRoutes(
+  private buildOneTransferRoutes(
     originCandidates: CandidateLine[],
     destCandidateIds: Set<string>,
     destCandidateMap: Map<string, CandidateLine>,
     origin: [number, number],
     destination: [number, number],
-  ): Promise<JourneyOption[]> {
+    includePolylines: boolean,
+  ): JourneyOption[] {
     const options: JourneyOption[] = [];
 
     for (const line1 of originCandidates) {
@@ -289,26 +384,44 @@ export class SearchService {
 
         const line2Dest = destCandidateMap.get(transfer.lineBId)!;
 
+        // Evitar transfers a la misma línea (mismo código, distinto sentido)
+        if (line2Dest.code === line1.code) continue;
+
         // Validar dirección en línea 1: abordaje → punto de trasbordo
-        if (line1.boardIndex >= transfer.pointAIndex) continue;
+        const line1GoingForward = line1.boardIndex < line1.alightIndex;
+        if (line1GoingForward) {
+          if (line1.boardIndex >= transfer.pointAIndex) continue;
+        } else {
+          if (line1.boardIndex <= transfer.pointAIndex) continue;
+        }
 
         // Validar distancia de trasbordo
         if (transfer.walkDistance > MAX_WALK_TRANSFER) continue;
 
         // Validar dirección en línea 2: punto de trasbordo → destino
-        if (transfer.pointBIndex >= line2Dest.alightIndex) continue;
+        const line2GoingForward = transfer.pointBIndex < line2Dest.boardIndex;
+        if (line2GoingForward) {
+          if (transfer.pointBIndex >= line2Dest.boardIndex) continue;
+        } else {
+          if (transfer.pointBIndex <= line2Dest.boardIndex) continue;
+        }
 
         // Validar distancia de caminata al destino
-        if (line2Dest.alightDistance > MAX_WALK_DESTINATION) continue;
+        if (line2Dest.boardDistance > MAX_WALK_DESTINATION) continue;
 
-        const ride1Polyline = line1.polyline.slice(
-          line1.boardIndex,
-          transfer.pointAIndex + 1,
-        );
-        const ride2Polyline = line2Dest.polyline.slice(
-          transfer.pointBIndex,
-          line2Dest.alightIndex + 1,
-        );
+        const ride1Polyline = line1GoingForward
+          ? line1.polyline.slice(line1.boardIndex, transfer.pointAIndex + 1)
+          : line1.polyline
+              .slice(transfer.pointAIndex, line1.boardIndex + 1)
+              .reverse();
+        const ride2Polyline = line2GoingForward
+          ? line2Dest.polyline.slice(
+              transfer.pointBIndex,
+              line2Dest.boardIndex + 1,
+            )
+          : line2Dest.polyline
+              .slice(line2Dest.boardIndex, transfer.pointBIndex + 1)
+              .reverse();
 
         const legs: JourneyLeg[] = [];
 
@@ -330,7 +443,7 @@ export class SearchService {
           lineCode: line1.code,
           lineName: line1.name,
           lineColor: line1.color,
-          polyline: ride1Polyline,
+          ...(includePolylines && { polyline: ride1Polyline }),
         });
 
         if (transfer.walkDistance > 0) {
@@ -345,21 +458,21 @@ export class SearchService {
         legs.push({
           type: 'ride',
           from: [transfer.pointBLng, transfer.pointBLat],
-          to: line2Dest.alightPoint,
+          to: line2Dest.boardPoint,
           distance: Math.round(this.calculatePolylineDistance(ride2Polyline)),
           lineId: line2Dest.id,
           lineCode: line2Dest.code,
           lineName: line2Dest.name,
           lineColor: line2Dest.color,
-          polyline: ride2Polyline,
+          ...(includePolylines && { polyline: ride2Polyline }),
         });
 
-        if (line2Dest.alightDistance > 0) {
+        if (line2Dest.boardDistance > 0) {
           legs.push({
             type: 'walk',
-            from: line2Dest.alightPoint,
+            from: line2Dest.boardPoint,
             to: destination,
-            distance: Math.round(line2Dest.alightDistance),
+            distance: Math.round(line2Dest.boardDistance),
           });
         }
 
@@ -372,13 +485,14 @@ export class SearchService {
 
   // ─── Step 4: Rutas con 2 trasbordos ───────────────────────────────────────
 
-  private async buildTwoTransferRoutes(
+  private buildTwoTransferRoutes(
     originCandidates: CandidateLine[],
     destCandidateIds: Set<string>,
     destCandidateMap: Map<string, CandidateLine>,
     origin: [number, number],
     destination: [number, number],
-  ): Promise<JourneyOption[]> {
+    includePolylines: boolean,
+  ): JourneyOption[] {
     const options: JourneyOption[] = [];
 
     for (const line1 of originCandidates) {
@@ -386,12 +500,20 @@ export class SearchService {
 
       for (const transfer1 of transfers1) {
         // Validar dirección en línea 1
-        if (line1.boardIndex >= transfer1.pointAIndex) continue;
+        const line1GoingForward = line1.boardIndex < line1.alightIndex;
+        if (line1GoingForward) {
+          if (line1.boardIndex >= transfer1.pointAIndex) continue;
+        } else {
+          if (line1.boardIndex <= transfer1.pointAIndex) continue;
+        }
         if (transfer1.walkDistance > MAX_WALK_TRANSFER) continue;
 
         // Cargar línea 2 para obtener su polilínea
-        const line2Data = await this.getLineData(transfer1.lineBId);
+        const line2Data = this.getLineData(transfer1.lineBId);
         if (!line2Data) continue;
+
+        // Evitar transfers a la misma línea (mismo código)
+        if (line2Data.code === line1.code) continue;
 
         const transfers2 = this.getTransfersFrom(transfer1.lineBId);
 
@@ -404,26 +526,50 @@ export class SearchService {
 
           const line3Dest = destCandidateMap.get(transfer2.lineBId)!;
 
+          // Evitar transfers a la misma línea (mismo código)
+          if (line3Dest.code === line2Data.code) continue;
+
           // Validar dirección en línea 2: trasbordo1 → trasbordo2
-          if (transfer1.pointBIndex >= transfer2.pointAIndex) continue;
+          const line2GoingForward =
+            transfer1.pointBIndex < transfer2.pointAIndex;
+          if (line2GoingForward) {
+            if (transfer1.pointBIndex >= transfer2.pointAIndex) continue;
+          } else {
+            if (transfer1.pointBIndex <= transfer2.pointAIndex) continue;
+          }
           if (transfer2.walkDistance > MAX_WALK_TRANSFER) continue;
 
           // Validar dirección en línea 3: trasbordo2 → destino
-          if (transfer2.pointBIndex >= line3Dest.alightIndex) continue;
-          if (line3Dest.alightDistance > MAX_WALK_DESTINATION) continue;
+          const line3GoingForward =
+            transfer2.pointBIndex < line3Dest.boardIndex;
+          if (line3GoingForward) {
+            if (transfer2.pointBIndex >= line3Dest.boardIndex) continue;
+          } else {
+            if (transfer2.pointBIndex <= line3Dest.boardIndex) continue;
+          }
+          if (line3Dest.boardDistance > MAX_WALK_DESTINATION) continue;
 
-          const ride1Polyline = line1.polyline.slice(
-            line1.boardIndex,
-            transfer1.pointAIndex + 1,
-          );
-          const ride2Polyline = line2Data.polyline.slice(
-            transfer1.pointBIndex,
-            transfer2.pointAIndex + 1,
-          );
-          const ride3Polyline = line3Dest.polyline.slice(
-            transfer2.pointBIndex,
-            line3Dest.alightIndex + 1,
-          );
+          const ride1Polyline = line1GoingForward
+            ? line1.polyline.slice(line1.boardIndex, transfer1.pointAIndex + 1)
+            : line1.polyline
+                .slice(transfer1.pointAIndex, line1.boardIndex + 1)
+                .reverse();
+          const ride2Polyline = line2GoingForward
+            ? line2Data.polyline.slice(
+                transfer1.pointBIndex,
+                transfer2.pointAIndex + 1,
+              )
+            : line2Data.polyline
+                .slice(transfer2.pointAIndex, transfer1.pointBIndex + 1)
+                .reverse();
+          const ride3Polyline = line3GoingForward
+            ? line3Dest.polyline.slice(
+                transfer2.pointBIndex,
+                line3Dest.boardIndex + 1,
+              )
+            : line3Dest.polyline
+                .slice(line3Dest.boardIndex, transfer2.pointBIndex + 1)
+                .reverse();
 
           const legs: JourneyLeg[] = [];
 
@@ -445,7 +591,7 @@ export class SearchService {
             lineCode: line1.code,
             lineName: line1.name,
             lineColor: line1.color,
-            polyline: ride1Polyline,
+            ...(includePolylines && { polyline: ride1Polyline }),
           });
 
           if (transfer1.walkDistance > 0) {
@@ -466,7 +612,7 @@ export class SearchService {
             lineCode: line2Data.code,
             lineName: line2Data.name,
             lineColor: line2Data.color,
-            polyline: ride2Polyline,
+            ...(includePolylines && { polyline: ride2Polyline }),
           });
 
           if (transfer2.walkDistance > 0) {
@@ -481,21 +627,21 @@ export class SearchService {
           legs.push({
             type: 'ride',
             from: [transfer2.pointBLng, transfer2.pointBLat],
-            to: line3Dest.alightPoint,
+            to: line3Dest.boardPoint,
             distance: Math.round(this.calculatePolylineDistance(ride3Polyline)),
             lineId: line3Dest.id,
             lineCode: line3Dest.code,
             lineName: line3Dest.name,
             lineColor: line3Dest.color,
-            polyline: ride3Polyline,
+            ...(includePolylines && { polyline: ride3Polyline }),
           });
 
-          if (line3Dest.alightDistance > 0) {
+          if (line3Dest.boardDistance > 0) {
             legs.push({
               type: 'walk',
-              from: line3Dest.alightPoint,
+              from: line3Dest.boardPoint,
               to: destination,
-              distance: Math.round(line3Dest.alightDistance),
+              distance: Math.round(line3Dest.boardDistance),
             });
           }
 
@@ -513,27 +659,15 @@ export class SearchService {
     return this.transferCache.getTransfersFrom(lineId);
   }
 
-  private async getLineData(lineId: string): Promise<{
+  private getLineData(lineId: string): {
     id: string;
     code: string;
     name: string;
     color: string;
     polyline: number[][];
-  } | null> {
-    const rows = await this.dataSource.query(
-      `SELECT id, code, name, color, geo_json FROM lines WHERE id = $1`,
-      [lineId],
-    );
-
-    if (!rows[0]?.geo_json?.coordinates?.[0]) return null;
-
-    return {
-      id: rows[0].id,
-      code: rows[0].code,
-      name: rows[0].name || rows[0].code,
-      color: rows[0].color || '#3B82F6',
-      polyline: rows[0].geo_json.coordinates[0],
-    };
+  } | null {
+    const line = this.transferCache.getLineCache().get(lineId);
+    return line ?? null;
   }
 
   // ─── Helpers de geometría ─────────────────────────────────────────────────
@@ -612,29 +746,44 @@ export class SearchService {
   }
 
   private rankAndSlice(options: JourneyOption[]): JourneyOption[] {
-    return options
+    const seen = new Set<string>();
+
+    const bestDirectTime = options
+      .filter((o) => o.transfers === 0)
+      .reduce((min, o) => Math.min(min, o.estimatedTime), Infinity);
+
+    const filtered = options.filter((option) => {
+      if (option.transfers > 0 && bestDirectTime < Infinity) {
+        const improvementNeeded = Math.min(
+          bestDirectTime * IMPROVEMENT_THRESHOLD_PERCENT,
+          IMPROVEMENT_THRESHOLD_MIN,
+        );
+        if (option.estimatedTime >= bestDirectTime - improvementNeeded) {
+          return false;
+        }
+      }
+
+      const fingerprint = option.legs
+        .filter((l) => l.type === 'ride')
+        .map((l) => l.lineCode)
+        .join('→');
+
+      if (seen.has(fingerprint)) return false;
+      seen.add(fingerprint);
+      return true;
+    });
+
+    return filtered
       .sort((a, b) => {
-        // 1. Tiempo estimado
-        if (a.estimatedTime !== b.estimatedTime) {
+        if (a.estimatedTime !== b.estimatedTime)
           return a.estimatedTime - b.estimatedTime;
-        }
-        // 2. Número de trasbordos
-        if (a.transfers !== b.transfers) {
-          return a.transfers - b.transfers;
-        }
-        // 3. Metros caminados
+        if (a.transfers !== b.transfers) return a.transfers - b.transfers;
         return a.totalWalk - b.totalWalk;
       })
       .slice(0, MAX_RESULTS);
   }
 
   // ─── Helpers de parsing ───────────────────────────────────────────────────
-
-  private getOriginFromCandidate(candidate: CandidateLine): [number, number] {
-    // El boardPoint ya está en la línea, el origen real es inferido
-    // desde la distancia — lo pasamos directamente desde search()
-    return candidate.boardPoint;
-  }
 
   private parseCoordinates(str: string): [number, number] {
     const [lat, lng] = str.split(',').map((s) => parseFloat(s.trim()));

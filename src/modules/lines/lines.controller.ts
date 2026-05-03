@@ -13,9 +13,7 @@ export class LinesController {
   @ApiOperation({ summary: 'Obtener todas las líneas' })
   @ApiResponse({ status: 200, description: 'Lista de líneas' })
   async findAll() {
-    return {
-      data: await this.linesService.findAll(),
-    };
+    return this.linesService.findAll();
   }
 
   @Get(':id')
@@ -28,7 +26,7 @@ export class LinesController {
     if (!line) {
       throw new NotFoundException('Línea no encontrada');
     }
-    return { data: line };
+    return line;
   }
 
   @Get(':id/opposite')
@@ -48,6 +46,6 @@ export class LinesController {
     if (!opposite) {
       throw new NotFoundException('Esta línea no tiene sentido相反');
     }
-    return { data: opposite };
+    return opposite;
   }
 }

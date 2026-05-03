@@ -32,9 +32,7 @@ export class FavoritesController {
   @ApiOperation({ summary: 'Obtener mis favoritos' })
   @ApiResponse({ status: 200, description: 'Lista de favoritos' })
   async findAll(@CurrentUser('id') userId: string) {
-    return {
-      data: await this.favoritesService.findByUser(userId),
-    };
+    return this.favoritesService.findByUser(userId);
   }
 
   @Post()
@@ -45,9 +43,7 @@ export class FavoritesController {
     @CurrentUser('id') userId: string,
     @Body() dto: CreateFavoriteDto,
   ) {
-    return {
-      data: await this.favoritesService.create(userId, dto.lineId, dto.name),
-    };
+    return this.favoritesService.create(userId, dto.lineId, dto.name);
   }
 
   @Delete(':id')

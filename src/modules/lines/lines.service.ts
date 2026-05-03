@@ -11,8 +11,7 @@ export class LinesService {
   ) {}
 
   async findAll(): Promise<Line[]> {
-    return this.lineRepository.find({
-      order: { code: 'ASC' },
+    const lines = await this.lineRepository.find({
       select: {
         id: true,
         code: true,
@@ -25,6 +24,12 @@ export class LinesService {
         createdAt: true,
         updatedAt: true,
       },
+    });
+
+    return lines.sort((a, b) => {
+      const numA = parseInt(a.code.match(/^\d+/)?.[0] || '0', 10);
+      const numB = parseInt(b.code.match(/^\d+/)?.[0] || '0', 10);
+      return numA - numB;
     });
   }
 

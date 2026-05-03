@@ -24,23 +24,12 @@ export class ResponseInterceptor<T> implements NestInterceptor<
     next: CallHandler,
   ): Observable<ApiResponse<T>> {
     return next.handle().pipe(
-      map((response) => {
-        if (response && response.data !== undefined) {
-          return {
-            status: 'success',
-            code: 'OK',
-            message: response.message || 'Success',
-            data: response.data,
-          };
-        }
-
-        return {
-          status: 'success',
-          code: 'OK',
-          message: response?.message || 'Success',
-          data: response?.data ?? response ?? null,
-        };
-      }),
+      map((data) => ({
+        status: 'success',
+        code: 'OK',
+        message: 'Success',
+        data,
+      })),
     );
   }
 }

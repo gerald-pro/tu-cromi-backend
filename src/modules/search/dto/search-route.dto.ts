@@ -1,5 +1,5 @@
-import { IsString, IsNotEmpty } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class SearchRouteDto {
   @ApiProperty({
@@ -17,4 +17,12 @@ export class SearchRouteDto {
   @IsString()
   @IsNotEmpty()
   destination: string;
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'Incluir polilíneas en la respuesta (default: true)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  includePolylines?: boolean;
 }

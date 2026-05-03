@@ -18,8 +18,6 @@ export class UsersController {
   @ApiOperation({ summary: 'Obtener perfil del usuario actual' })
   @ApiResponse({ status: 200, description: 'Perfil del usuario' })
   async getProfile(@CurrentUser('id') userId: string) {
-    return {
-      data: await this.usersService.findOrFail(userId),
-    };
+    return this.usersService.findOrFail(userId);
   }
 }
