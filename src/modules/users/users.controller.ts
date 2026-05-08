@@ -17,7 +17,7 @@ export class UsersController {
   @Get('me')
   @ApiOperation({ summary: 'Obtener perfil del usuario actual' })
   @ApiResponse({ status: 200, description: 'Perfil del usuario' })
-  async getProfile(@CurrentUser('id') userId: string) {
+  async getProfile(@CurrentUser('id') userId: number) {
     return this.usersService.findOrFail(userId);
   }
 }

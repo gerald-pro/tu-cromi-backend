@@ -17,6 +17,6 @@ export class SearchController {
     description: 'Rutas encontradas ordenadas por distancia',
   })
   async search(@Body() dto: SearchRouteDto) {
-    return this.searchService.search(dto);
+    return await this.searchService.search(dto);
   }
 }

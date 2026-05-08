@@ -10,11 +10,12 @@ import {
 } from 'typeorm';
 import { LineSense } from './line-sense.enum';
 import { Favorite } from '../favorites/favorite.entity';
+import { Review } from '../reviews/review.entity';
 
 @Entity('lines')
 export class Line {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column()
   code: string;
@@ -45,7 +46,7 @@ export class Line {
   sense: LineSense;
 
   @Column({ name: 'parent_line_id', nullable: true })
-  parentLineId: string;
+  parentLineId: number;
 
   @ManyToOne(() => Line, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'parent_line_id' })
@@ -62,6 +63,22 @@ export class Line {
 
   @OneToMany(() => Favorite, (favorite) => favorite.line)
   favorites: Favorite[];
+
+  @Column({
+    name: 'average_rating',
+    type: 'decimal',
+    precision: 3,
+    scale: 2,
+    nullable: true,
+    default: null,
+  })
+  averageRating: number | null;
+
+  @Column({ name: 'total_reviews', default: 0 })
+  totalReviews: number;
+
+  @OneToMany(() => Review, (review) => review.line)
+  reviews: Review[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

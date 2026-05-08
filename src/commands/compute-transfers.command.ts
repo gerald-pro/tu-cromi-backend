@@ -13,12 +13,12 @@ interface ComputeTransfersOptions {
 }
 
 interface CandidatePair {
-  lineAId: string;
-  lineBId: string;
+  lineAId: number;
+  lineBId: number;
 }
 
 interface LineData {
-  id: string;
+  id: number;
   polyline: number[][];
 }
 
@@ -141,7 +141,10 @@ export class ComputeTransfersCommand extends CommandRunner {
       process.stdout.write('\r');
       console.log(`✓ Found ${rows.length} nearby line pairs`);
 
-      return rows.map((r) => ({ lineAId: r.line_a_id, lineBId: r.line_b_id }));
+      return rows.map((r) => ({
+        lineAId: parseInt(r.line_a_id, 10),
+        lineBId: parseInt(r.line_b_id, 10),
+      }));
     } catch (err) {
       clearInterval(spinnerInterval);
       process.stdout.write('\r');
@@ -149,9 +152,9 @@ export class ComputeTransfersCommand extends CommandRunner {
     }
   }
 
-  private async loadLines(): Promise<Map<string, LineData>> {
+  private async loadLines(): Promise<Map<number, LineData>> {
     const lines = await this.lineRepository.find();
-    const map = new Map<string, LineData>();
+    const map = new Map<number, LineData>();
 
     for (const line of lines) {
       const geoJson = line.geoJson as {

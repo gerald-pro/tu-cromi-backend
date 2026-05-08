@@ -3,7 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Line } from '../lines/line.entity';
 import { LineTransfer } from '../transfers/line-transfer.entity';
-import { TransferCacheService } from '../transfers/transfer-cache.service';
+import {
+  TransferCacheService,
+  TransferNode,
+} from '../transfers/transfer-cache.service';
 import { SearchRouteDto } from './dto';
 
 // ─── Umbrales ────────────────────────────────────────────────────────────────
@@ -24,7 +27,7 @@ export interface JourneyLeg {
   from: [number, number];
   to: [number, number];
   distance: number;
-  lineId?: string;
+  lineId?: number;
   lineCode?: string;
   lineName?: string;
   lineColor?: string;
@@ -43,7 +46,7 @@ export interface JourneyOption {
 // ─── Interfaces internas ─────────────────────────────────────────────────────
 
 interface CandidateLine {
-  id: string;
+  id: number;
   code: string;
   name: string;
   color: string;
@@ -56,20 +59,8 @@ interface CandidateLine {
   alightDistance: number;
 }
 
-interface TransferNode {
-  lineAId: string;
-  lineBId: string;
-  pointAIndex: number;
-  pointALng: number;
-  pointALat: number;
-  pointBIndex: number;
-  pointBLng: number;
-  pointBLat: number;
-  walkDistance: number;
-}
-
 interface LineRow {
-  id: string;
+  id: number;
   code: string;
   name: string;
   color: string;
@@ -236,8 +227,8 @@ export class SearchService {
 
   private buildDirectRoutes(
     originCandidates: CandidateLine[],
-    destCandidateIds: Set<string>,
-    destCandidateMap: Map<string, CandidateLine>,
+    destCandidateIds: Set<number>,
+    destCandidateMap: Map<number, CandidateLine>,
     origin: [number, number],
     destination: [number, number],
     includePolylines: boolean,
@@ -366,8 +357,8 @@ export class SearchService {
 
   private buildOneTransferRoutes(
     originCandidates: CandidateLine[],
-    destCandidateIds: Set<string>,
-    destCandidateMap: Map<string, CandidateLine>,
+    destCandidateIds: Set<number>,
+    destCandidateMap: Map<number, CandidateLine>,
     origin: [number, number],
     destination: [number, number],
     includePolylines: boolean,
@@ -487,8 +478,8 @@ export class SearchService {
 
   private buildTwoTransferRoutes(
     originCandidates: CandidateLine[],
-    destCandidateIds: Set<string>,
-    destCandidateMap: Map<string, CandidateLine>,
+    destCandidateIds: Set<number>,
+    destCandidateMap: Map<number, CandidateLine>,
     origin: [number, number],
     destination: [number, number],
     includePolylines: boolean,
@@ -655,12 +646,14 @@ export class SearchService {
 
   // ─── Helpers de datos ─────────────────────────────────────────────────────
 
-  private getTransfersFrom(lineId: string): TransferNode[] {
-    return this.transferCache.getTransfersFrom(lineId);
+  private getTransfersFrom(lineId: number): TransferNode[] {
+    return this.transferCache.getTransfersFrom(
+      lineId,
+    ) as unknown as TransferNode[];
   }
 
-  private getLineData(lineId: string): {
-    id: string;
+  private getLineData(lineId: number): {
+    id: number;
     code: string;
     name: string;
     color: string;

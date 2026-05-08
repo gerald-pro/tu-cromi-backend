@@ -5,7 +5,7 @@ import { RegisterDto, LoginDto } from './dto';
 import { User } from '../users/user.entity';
 
 export interface JwtPayload {
-  sub: string;
+  sub: number;
   email: string;
 }
 
@@ -19,7 +19,10 @@ export class AuthService {
   async register(dto: RegisterDto) {
     const user = await this.usersService.create(dto.email, dto.password);
     const token = this.generateToken(user);
-    return { user: this.sanitizeUser(user), ...token };
+    return {
+      user: this.sanitizeUser(user),
+      ...token,
+    };
   }
 
   async login(dto: LoginDto) {
@@ -31,7 +34,10 @@ export class AuthService {
       throw new UnauthorizedException('Credenciales inválidas');
     }
     const token = this.generateToken(user);
-    return { user: this.sanitizeUser(user), ...token };
+    return {
+      user: this.sanitizeUser(user),
+      ...token,
+    };
   }
 
   private generateToken(user: User) {

@@ -19,7 +19,7 @@ export class UsersService {
     return this.userRepository.findOne({ where: { email } });
   }
 
-  async findById(id: string): Promise<User | null> {
+  async findById(id: number): Promise<User | null> {
     return this.userRepository.findOne({ where: { id } });
   }
 
@@ -42,7 +42,7 @@ export class UsersService {
     return bcrypt.compare(password, user.password);
   }
 
-  async findOrFail(id: string): Promise<User> {
+  async findOrFail(id: number): Promise<User> {
     const user = await this.findById(id);
     if (!user) {
       throw new NotFoundException('Usuario no encontrado');

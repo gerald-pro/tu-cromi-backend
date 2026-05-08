@@ -5,7 +5,7 @@ import {
   Body,
   Param,
   Delete,
-  ParseUUIDPipe,
+  ParseIntPipe,
   HttpCode,
   HttpStatus,
   UseGuards,
@@ -31,8 +31,8 @@ export class FavoritesController {
   @Get()
   @ApiOperation({ summary: 'Obtener mis favoritos' })
   @ApiResponse({ status: 200, description: 'Lista de favoritos' })
-  async findAll(@CurrentUser('id') userId: string) {
-    return this.favoritesService.findByUser(userId);
+  async findAll(@CurrentUser('id') userId: number) {
+    return await this.favoritesService.findByUser(userId);
   }
 
   @Post()
@@ -40,10 +40,10 @@ export class FavoritesController {
   @ApiResponse({ status: 201, description: 'Favorito creado' })
   @ApiResponse({ status: 409, description: 'Ya está en favoritos' })
   async create(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('id') userId: number,
     @Body() dto: CreateFavoriteDto,
   ) {
-    return this.favoritesService.create(userId, dto.lineId, dto.name);
+    return await this.favoritesService.create(userId, dto.lineId, dto.name);
   }
 
   @Delete(':id')
@@ -52,8 +52,8 @@ export class FavoritesController {
   @ApiResponse({ status: 204, description: 'Favorito eliminado' })
   @ApiResponse({ status: 404, description: 'Favorito no encontrado' })
   async delete(
-    @CurrentUser('id') userId: string,
-    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('id') userId: number,
+    @Param('id', ParseIntPipe) id: number,
   ) {
     await this.favoritesService.delete(userId, id);
   }

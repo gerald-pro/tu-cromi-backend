@@ -2,8 +2,8 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
 export interface TransferNode {
-  lineAId: string;
-  lineBId: string;
+  lineAId: number;
+  lineBId: number;
   pointAIndex: number;
   pointALng: number;
   pointALat: number;
@@ -14,7 +14,7 @@ export interface TransferNode {
 }
 
 export interface LineData {
-  id: string;
+  id: number;
   code: string;
   name: string;
   color: string;
@@ -45,8 +45,8 @@ const LINE_CACHE_LIMIT = 500;
 
 @Injectable()
 export class TransferCacheService implements OnModuleInit {
-  private transferMap = new Map<string, TransferNode[]>();
-  private lineCache = new Map<string, LineData>();
+  private transferMap = new Map<number, TransferNode[]>();
+  private lineCache = new Map<number, LineData>();
   private isLoaded = false;
 
   constructor(private readonly dataSource: DataSource) {}
@@ -67,11 +67,11 @@ export class TransferCacheService implements OnModuleInit {
       `,
     );
 
-    const map = new Map<string, TransferNode[]>();
+    const map = new Map<number, TransferNode[]>();
     for (const r of rows) {
       const node: TransferNode = {
-        lineAId: r.line_a_id,
-        lineBId: r.line_b_id,
+        lineAId: parseInt(r.line_a_id as unknown as string, 10),
+        lineBId: parseInt(r.line_b_id as unknown as string, 10),
         pointAIndex: r.point_a_index,
         pointALng: r.point_a_lng,
         pointALat: r.point_a_lat,
@@ -81,9 +81,9 @@ export class TransferCacheService implements OnModuleInit {
         walkDistance: r.walk_distance,
       };
 
-      const existing = map.get(r.line_a_id) ?? [];
+      const existing = map.get(node.lineAId) ?? [];
       existing.push(node);
-      map.set(r.line_a_id, existing);
+      map.set(node.lineAId, existing);
     }
 
     this.transferMap = map;
@@ -93,18 +93,18 @@ export class TransferCacheService implements OnModuleInit {
     );
   }
 
-  getTransfersFrom(lineId: string): TransferNode[] {
+  getTransfersFrom(lineId: number): TransferNode[] {
     return this.transferMap.get(lineId) ?? [];
   }
 
-  async getOrLoadLine(lineId: string): Promise<LineData | undefined> {
+  async getOrLoadLine(lineId: number): Promise<LineData | undefined> {
     const cached = this.lineCache.get(lineId);
     if (cached) return cached;
 
     return this.loadLine(lineId);
   }
 
-  private async loadLine(lineId: string): Promise<LineData | undefined> {
+  private async loadLine(lineId: number): Promise<LineData | undefined> {
     const rows: LineRow[] = await this.dataSource.query(
       `SELECT id, code, name, color, geo_json FROM lines WHERE id = $1`,
       [lineId],
@@ -113,7 +113,7 @@ export class TransferCacheService implements OnModuleInit {
     if (!rows[0]?.geo_json?.coordinates?.[0]) return undefined;
 
     const lineData: LineData = {
-      id: rows[0].id,
+      id: parseInt(rows[0].id, 10),
       code: rows[0].code,
       name: rows[0].name || rows[0].code,
       color: rows[0].color || '#3B82F6',
@@ -136,7 +136,7 @@ export class TransferCacheService implements OnModuleInit {
     return this.lineCache.size;
   }
 
-  getLineCache(): Map<string, LineData> {
+  getLineCache(): Map<number, LineData> {
     return this.lineCache;
   }
 

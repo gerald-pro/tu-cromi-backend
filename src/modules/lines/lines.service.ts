@@ -33,7 +33,7 @@ export class LinesService {
     });
   }
 
-  async findById(id: string): Promise<Line | null> {
+  async findById(id: number): Promise<Line | null> {
     return this.lineRepository.findOne({
       where: { id },
       relations: ['parentLine'],

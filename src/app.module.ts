@@ -12,6 +12,7 @@ import { FavoritesModule } from './modules/favorites/favorites.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { SearchModule } from './modules/search/search.module';
 import { TransfersModule } from './modules/transfers/transfers.module';
+import { ReviewsModule } from './modules/reviews/reviews.module';
 import { CommandsModule } from './commands/commands.module';
 
 @Module({
@@ -38,6 +39,7 @@ import { CommandsModule } from './commands/commands.module';
     FavoritesModule,
     SearchModule,
     TransfersModule,
+    ReviewsModule,
   ],
   providers: [
     {

@@ -13,18 +13,18 @@ import { Line } from '../lines/line.entity';
 @Index(['lineAId', 'lineBId'])
 @Index(['lineBId', 'lineAId'])
 export class LineTransfer {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column({ name: 'line_a_id' })
-  lineAId: string;
+  lineAId: number;
 
   @ManyToOne(() => Line, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'line_a_id' })
   lineA: Line;
 
   @Column({ name: 'line_b_id' })
-  lineBId: string;
+  lineBId: number;
 
   @ManyToOne(() => Line, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'line_b_id' })

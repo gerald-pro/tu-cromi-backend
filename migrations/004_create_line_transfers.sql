@@ -2,9 +2,9 @@
 -- Created: 2026-04-04
 
 CREATE TABLE IF NOT EXISTS line_transfers (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    line_a_id UUID NOT NULL REFERENCES lines(id) ON DELETE CASCADE,
-    line_b_id UUID NOT NULL REFERENCES lines(id) ON DELETE CASCADE,
+    id SERIAL PRIMARY KEY,
+    line_a_id INTEGER NOT NULL REFERENCES lines(id) ON DELETE CASCADE,
+    line_b_id INTEGER NOT NULL REFERENCES lines(id) ON DELETE CASCADE,
     point_a_lng FLOAT NOT NULL,
     point_a_lat FLOAT NOT NULL,
     point_a_index INTEGER NOT NULL,

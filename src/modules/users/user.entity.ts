@@ -7,11 +7,12 @@ import {
   OneToMany,
 } from 'typeorm';
 import { Favorite } from '../favorites/favorite.entity';
+import { Review } from '../reviews/review.entity';
 
 @Entity('users')
 export class User {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
+  @PrimaryGeneratedColumn()
+  id: number;
 
   @Column({ unique: true })
   email: string;
@@ -21,6 +22,9 @@ export class User {
 
   @OneToMany(() => Favorite, (favorite) => favorite.user)
   favorites: Favorite[];
+
+  @OneToMany(() => Review, (review) => review.user)
+  reviews: Review[];
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

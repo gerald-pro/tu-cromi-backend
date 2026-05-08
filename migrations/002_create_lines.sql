@@ -8,16 +8,18 @@ EXCEPTION
 END $$;
 
 CREATE TABLE IF NOT EXISTS lines (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id SERIAL PRIMARY KEY,
     code VARCHAR(255) NOT NULL,
     name VARCHAR(255),
     color VARCHAR(255),
     geo_json JSONB,
     geom geometry(MultiLineString, 4326),
     sense line_sense_enum DEFAULT 'OUTBOUND',
-    parent_line_id UUID REFERENCES lines(id) ON DELETE SET NULL,
+    parent_line_id INTEGER REFERENCES lines(id) ON DELETE SET NULL,
     syndicate VARCHAR(255),
     objectid INTEGER,
+    average_rating DECIMAL(3,2) DEFAULT NULL,
+    total_reviews INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );

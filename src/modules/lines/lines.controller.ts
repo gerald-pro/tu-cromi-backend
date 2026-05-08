@@ -1,12 +1,22 @@
-import { Controller, Get, Param, NotFoundException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Param,
+  Query,
+  NotFoundException,
+} from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { LinesService } from './lines.service';
+import { ReviewsService } from '../reviews/reviews.service';
 import { Public } from '../../common/decorators/public.decorator';
 
 @ApiTags('lines')
 @Controller('lines')
 export class LinesController {
-  constructor(private readonly linesService: LinesService) {}
+  constructor(
+    private readonly linesService: LinesService,
+    private readonly reviewsService: ReviewsService,
+  ) {}
 
   @Get()
   @Public()
@@ -44,8 +54,58 @@ export class LinesController {
     }
     const opposite = await this.linesService.findById(line.parentLineId);
     if (!opposite) {
-      throw new NotFoundException('Esta línea no tiene sentido相反');
+      throw new NotFoundException('Esta línea no tiene sentido contrario');
     }
     return opposite;
+  }
+
+  @Get(':id/reviews')
+  @Public()
+  @ApiOperation({ summary: 'Obtener reseñas de una línea' })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description: 'Página (default 1)',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Límite por página (default 10)',
+  })
+  @ApiQuery({
+    name: 'sort',
+    required: false,
+    enum: ['newest', 'highest', 'lowest'],
+    description: 'Ordenar por',
+  })
+  @ApiResponse({ status: 200, description: 'Lista de reseñas' })
+  async findReviews(
+    @Param('id') id: string,
+    @Query('page') page: number = 1,
+    @Query('limit') limit: number = 10,
+    @Query('sort') sort: string = 'newest',
+  ) {
+    const lineId = parseInt(id, 10);
+    const line = await this.linesService.findById(lineId);
+    if (!line) {
+      throw new NotFoundException('Línea no encontrada');
+    }
+    const result = await this.reviewsService.findByLine(
+      lineId,
+      page,
+      limit,
+      sort,
+    );
+    return {
+      data: result.data,
+      meta: {
+        total: result.total,
+        page: result.page,
+        limit: result.limit,
+        totalPages: Math.ceil(result.total / result.limit),
+      },
+    };
   }
 }

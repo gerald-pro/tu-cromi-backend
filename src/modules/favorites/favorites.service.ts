@@ -14,7 +14,7 @@ export class FavoritesService {
     private readonly favoriteRepository: Repository<Favorite>,
   ) {}
 
-  async findByUser(userId: string): Promise<Favorite[]> {
+  async findByUser(userId: number): Promise<Favorite[]> {
     return this.favoriteRepository.find({
       where: { userId },
       relations: ['line'],
@@ -23,8 +23,8 @@ export class FavoritesService {
   }
 
   async create(
-    userId: string,
-    lineId: string,
+    userId: number,
+    lineId: number,
     name?: string,
   ): Promise<Favorite> {
     const existing = await this.favoriteRepository.findOne({
@@ -48,7 +48,7 @@ export class FavoritesService {
     return this.favoriteRepository.save(favorite);
   }
 
-  async delete(userId: string, favoriteId: string): Promise<void> {
+  async delete(userId: number, favoriteId: number): Promise<void> {
     const favorite = await this.favoriteRepository.findOne({
       where: { id: favoriteId },
     });

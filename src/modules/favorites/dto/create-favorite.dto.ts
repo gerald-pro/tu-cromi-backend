@@ -4,7 +4,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 export class CreateFavoriteDto {
   @ApiProperty({ description: 'ID de la línea' })
   @IsUUID()
-  lineId: string;
+  lineId: number;
 
   @ApiPropertyOptional({ description: 'Nombre personalizado (opcional)' })
   @IsOptional()
