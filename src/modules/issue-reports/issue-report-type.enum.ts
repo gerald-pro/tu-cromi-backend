@@ -1,0 +1,6 @@
+export enum IssueReportType {
+  ROUTE_OUTDATED = 'ROUTE_OUTDATED',
+  STOP_MISSING = 'STOP_MISSING',
+  WRONG_PATH = 'WRONG_PATH',
+  OTHER = 'OTHER',
+}

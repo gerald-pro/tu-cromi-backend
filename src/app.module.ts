@@ -13,6 +13,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { SearchModule } from './modules/search/search.module';
 import { TransfersModule } from './modules/transfers/transfers.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { IssueReportsModule } from './modules/issue-reports/issue-reports.module';
 import { CommandsModule } from './commands/commands.module';
 
 @Module({
@@ -40,6 +41,7 @@ import { CommandsModule } from './commands/commands.module';
     SearchModule,
     TransfersModule,
     ReviewsModule,
+    IssueReportsModule,
   ],
   providers: [
     {
