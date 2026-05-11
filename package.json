@@ -7,6 +7,7 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "postbuild": "node -e \"const{cpSync,existsSync}=require('fs');const{join}=require('path');if(existsSync(join('src','data')))cpSync(join('src','data'),join('dist','data'),{recursive:true});console.log('Data files copied to dist/');\"",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
@@ -18,9 +19,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "seed": "ts-node -r tsconfig-paths/register src/cli.ts seed",
-    "db:migrate": "ts-node -r tsconfig-paths/register src/database/run-migrations.ts",
-    "compute:transfers": "ts-node -r tsconfig-paths/register src/cli.ts compute-transfers"
+    "seed": "node dist/database/seed-lines.js && node dist/database/seed-reviews.js",
+    "db:migrate": "node dist/database/run-migrations.js",
+    "compute:transfers": "node dist/database/compute-transfers.js"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

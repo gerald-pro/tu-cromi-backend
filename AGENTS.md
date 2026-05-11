@@ -4,9 +4,9 @@
 ```bash
 npm run build           # Compile TypeScript to dist/ (nest build)
 npm run start:dev       # Hot-reload dev server
-npm run seed            # Import transit lines from GeoJSON (src/cli.ts seed)
-npm run db:migrate      # Run SQL migrations from /migrations/*.sql (src/database/run-migrations.ts)
-npm run compute:transfers  # Precompute transit transfers (src/cli.ts compute-transfers)
+npm run seed            # Import lines from GeoJSON + generate mock reviews
+npm run db:migrate      # Run SQL migrations from /migrations/*.sql
+npm run compute:transfers  # Precompute transfers
 npm run lint            # ESLint with autofix
 npm run format          # Prettier format
 

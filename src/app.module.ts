@@ -14,7 +14,6 @@ import { SearchModule } from './modules/search/search.module';
 import { TransfersModule } from './modules/transfers/transfers.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { IssueReportsModule } from './modules/issue-reports/issue-reports.module';
-import { CommandsModule } from './commands/commands.module';
 
 @Module({
   imports: [
@@ -33,7 +32,6 @@ import { CommandsModule } from './commands/commands.module';
       autoLoadEntities: true,
       synchronize: false,
     }),
-    CommandsModule,
     AuthModule,
     UsersModule,
     LinesModule,
