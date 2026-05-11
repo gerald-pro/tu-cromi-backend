@@ -40,7 +40,7 @@ const dataSource = new DataSource({
   password: process.env.DATABASE_PASSWORD || 'postgres',
   entities: [Line, Favorite, Review, User],
   ssl:
-    process.env.NODE_ENV === 'production'
+    process.env.DATABASE_SSL === 'true'
       ? { rejectUnauthorized: false }
       : false,
 });

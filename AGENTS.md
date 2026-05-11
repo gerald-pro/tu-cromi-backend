@@ -43,6 +43,7 @@ DATABASE_PORT=5432
 DATABASE_NAME=tucromi
 DATABASE_USER=postgres
 DATABASE_PASSWORD=postgres
+DATABASE_SSL=true         # Set to 'true' when connecting to Aiven
 JWT_SECRET=your-secret-key
 JWT_EXPIRES_IN=7d
 PORT=3000
