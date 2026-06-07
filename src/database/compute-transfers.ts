@@ -32,6 +32,7 @@ const dataSource = new DataSource({
 });
 
 async function computeTransfers(): Promise<void> {
+  const startTime = Date.now();
   await dataSource.initialize();
   console.log('Database connected');
 
@@ -82,9 +83,18 @@ async function computeTransfers(): Promise<void> {
   console.log(`Computed ${transfers.length} transfer points`);
 
   await saveBatched(transferRepository, transfers);
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
   console.log('Transfer computation complete');
 
   await dataSource.destroy();
+
+  console.log(
+    `__TRANSFER_RESULT__${JSON.stringify({
+      success: true,
+      transfersCreated: transfers.length,
+      duration: `${duration}s`,
+    })}__TRANSFER_RESULT__`,
+  );
 }
 
 interface CandidatePair {
