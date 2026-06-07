@@ -45,14 +45,7 @@ export class LinesController {
   @ApiResponse({ status: 200, description: 'Línea opuesta' })
   @ApiResponse({ status: 404, description: 'No tiene línea opuesta' })
   async findOpposite(@Param('id') id: string) {
-    const line = await this.linesService.findByCode(id);
-    if (!line) {
-      throw new NotFoundException('Línea no encontrada');
-    }
-    if (!line.parentLineId) {
-      throw new NotFoundException('Esta línea no tiene sentido contrario');
-    }
-    const opposite = await this.linesService.findById(line.parentLineId);
+    const opposite = await this.linesService.findOpposite(id);
     if (!opposite) {
       throw new NotFoundException('Esta línea no tiene sentido contrario');
     }

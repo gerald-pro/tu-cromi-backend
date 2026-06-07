@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 
 @Injectable()
@@ -13,8 +18,9 @@ export class AdminGuard implements CanActivate {
       throw new ForbiddenException('No autenticado');
     }
 
-    const adminEmails = process.env.ADMIN_EMAILS?.split(',').map(e => e.trim()) || [];
-    
+    const adminEmails =
+      process.env.ADMIN_EMAILS?.split(',').map((e) => e.trim()) || [];
+
     if (!adminEmails.includes(user.email)) {
       throw new ForbiddenException('Acceso de administrador requerido');
     }

@@ -18,9 +18,7 @@ const dataSource = new DataSource({
   password: process.env.DATABASE_PASSWORD || 'postgres',
   entities: [Review, User, Line, Favorite],
   ssl:
-    process.env.DATABASE_SSL === 'true'
-      ? { rejectUnauthorized: false }
-      : false,
+    process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
 const COMMENTS = [
@@ -45,12 +43,17 @@ async function seedReviews(): Promise<void> {
   const lineRepository = dataSource.getRepository(Line);
 
   const existingReviews = await reviewRepository.count();
+  const force = process.argv.includes('--force');
+
   if (existingReviews > 0) {
-    console.log(
-      `Reviews already seeded (${existingReviews} found). Skipping.`,
-    );
-    await dataSource.destroy();
-    return;
+    if (force) {
+      console.log(`Deleting ${existingReviews} existing reviews (--force)...`);
+      await reviewRepository.delete({});
+    } else {
+      console.log(`Reviews already seeded (${existingReviews} found). Skipping.`);
+      await dataSource.destroy();
+      return;
+    }
   }
 
   const users = await userRepository.find();

@@ -28,9 +28,7 @@ const dataSource = new DataSource({
   password: process.env.DATABASE_PASSWORD || 'postgres',
   entities: [Line, LineTransfer, Favorite, Review, User],
   ssl:
-    process.env.DATABASE_SSL === 'true'
-      ? { rejectUnauthorized: false }
-      : false,
+    process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
 
 async function computeTransfers(): Promise<void> {
@@ -46,11 +44,7 @@ async function computeTransfers(): Promise<void> {
   const lineCount = await lineRepository.count();
   console.log(`Lines found: ${lineCount}`);
 
-  const existingTransfers = await transferRepository.count();
-  if (existingTransfers > 0) {
-    await transferRepository.clear();
-    console.log(`Cleared ${existingTransfers} existing transfers`);
-  }
+  await dataSource.query('TRUNCATE TABLE line_transfers CASCADE');
 
   const lines = await lineRepository.find();
   const lineMap = new Map<number, LineData>();
@@ -98,9 +92,7 @@ interface CandidatePair {
   lineB: number;
 }
 
-async function findCandidatePairs(
-  ds: DataSource,
-): Promise<CandidatePair[]> {
+async function findCandidatePairs(ds: DataSource): Promise<CandidatePair[]> {
   const query = `
     SELECT DISTINCT a.id AS line_a_id, b.id AS line_b_id
     FROM lines a
@@ -109,8 +101,10 @@ async function findCandidatePairs(
       AND a.id < b.id
   `;
 
-  const rows: { line_a_id: number; line_b_id: number }[] =
-    await ds.query(query, [TRANSFER_RADIUS_METERS]);
+  const rows: { line_a_id: number; line_b_id: number }[] = await ds.query(
+    query,
+    [TRANSFER_RADIUS_METERS],
+  );
 
   return rows.map((r) => ({
     lineA: r.line_a_id,
@@ -160,19 +154,17 @@ function findAllTransferPoints(
 
   const dedupedForward = deduplicateNearby(forwardResults);
 
-  const inverseResults: Partial<LineTransfer>[] = dedupedForward.map(
-    (t) => ({
-      lineAId: t.lineBId,
-      lineBId: t.lineAId,
-      pointALng: t.pointBLng,
-      pointALat: t.pointBLat,
-      pointAIndex: t.pointBIndex,
-      pointBLng: t.pointALng,
-      pointBLat: t.pointALat,
-      pointBIndex: t.pointAIndex,
-      walkDistance: t.walkDistance,
-    }),
-  );
+  const inverseResults: Partial<LineTransfer>[] = dedupedForward.map((t) => ({
+    lineAId: t.lineBId,
+    lineBId: t.lineAId,
+    pointALng: t.pointBLng,
+    pointALat: t.pointBLat,
+    pointAIndex: t.pointBIndex,
+    pointBLng: t.pointALng,
+    pointBLat: t.pointALat,
+    pointBIndex: t.pointAIndex,
+    walkDistance: t.walkDistance,
+  }));
 
   const dedupedInverse = deduplicateNearby(inverseResults);
 

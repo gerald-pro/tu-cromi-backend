@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { Line } from '../lines/line.entity';
+import { LineSense } from '../lines/line-sense.enum';
 import { LineTransfer } from '../transfers/line-transfer.entity';
 import {
   TransferCacheService,
@@ -50,6 +51,7 @@ interface CandidateLine {
   code: string;
   name: string;
   color: string;
+  sense: string;
   polyline: number[][];
   boardIndex: number;
   boardPoint: [number, number];
@@ -64,6 +66,7 @@ interface LineRow {
   code: string;
   name: string;
   color: string;
+  sense: string;
   geo_json: { type: string; coordinates: number[][][] };
 }
 
@@ -84,6 +87,8 @@ export class SearchService {
     const origin = this.parseCoordinates(dto.origin);
     const destination = this.parseCoordinates(dto.destination);
     const includePolylines = dto.includePolylines !== false;
+    const maxTransfers = dto.maxTransfers ?? 2;
+    const maxResults = dto.limit ?? MAX_RESULTS;
 
     console.log('=== SEARCH DEBUG ===');
     console.log('Origin:', origin);
@@ -122,29 +127,33 @@ export class SearchService {
     options.push(...directRoutes);
 
     // 3. Rutas con 1 trasbordo
-    const oneTransferRoutes = this.buildOneTransferRoutes(
-      originCandidates,
-      destCandidateIds,
-      destCandidateMap,
-      origin,
-      destination,
-      includePolylines,
-    );
-    options.push(...oneTransferRoutes);
+    if (maxTransfers >= 1) {
+      const oneTransferRoutes = this.buildOneTransferRoutes(
+        originCandidates,
+        destCandidateIds,
+        destCandidateMap,
+        origin,
+        destination,
+        includePolylines,
+      );
+      options.push(...oneTransferRoutes);
+    }
 
     // 4. Rutas con 2 trasbordos
-    const twoTransferRoutes = this.buildTwoTransferRoutes(
-      originCandidates,
-      destCandidateIds,
-      destCandidateMap,
-      origin,
-      destination,
-      includePolylines,
-    );
-    options.push(...twoTransferRoutes);
+    if (maxTransfers >= 2) {
+      const twoTransferRoutes = this.buildTwoTransferRoutes(
+        originCandidates,
+        destCandidateIds,
+        destCandidateMap,
+        origin,
+        destination,
+        includePolylines,
+      );
+      options.push(...twoTransferRoutes);
+    }
 
     // 5. Ranking y retorno
-    const results = this.rankAndSlice(options);
+    const results = this.rankAndSlice(options, maxResults);
     console.log('=== RESULTS ===');
     console.log(`Total options before filtering: ${options.length}`);
     console.log(
@@ -169,7 +178,7 @@ export class SearchService {
   ): Promise<CandidateLine[]> {
     const rows: LineRow[] = await this.dataSource.query(
       `
-      SELECT l.id, l.code, l.name, l.color, l.geo_json
+      SELECT l.id, l.code, l.name, l.color, l.sense, l.geo_json
       FROM lines l
       WHERE ST_DWithin(
         l.geom::geography,
@@ -210,6 +219,7 @@ export class SearchService {
         code: row.code,
         name: row.name || row.code,
         color: row.color || '#3B82F6',
+        sense: row.sense,
         polyline,
         boardIndex: boardResult.index,
         boardPoint: boardResult.point,
@@ -223,6 +233,58 @@ export class SearchService {
     return candidates;
   }
 
+  // ─── Deduplicación por sentido ─────────────────────────────────────────────
+
+  private deduplicateBySense(
+    candidates: CandidateLine[],
+    origin: [number, number],
+    destination: [number, number],
+  ): CandidateLine[] {
+    const byCode = new Map<string, CandidateLine[]>();
+    for (const c of candidates) {
+      if (!byCode.has(c.code)) byCode.set(c.code, []);
+      byCode.get(c.code)!.push(c);
+    }
+
+    const result: CandidateLine[] = [];
+    for (const [, sameCode] of byCode) {
+      if (sameCode.length === 1) {
+        result.push(sameCode[0]);
+      } else {
+        result.push(
+          this.choosePreferredSense(sameCode, origin, destination),
+        );
+      }
+    }
+    return result;
+  }
+
+  private choosePreferredSense(
+    candidates: CandidateLine[],
+    origin: [number, number],
+    destination: [number, number],
+  ): CandidateLine {
+    const outbound = candidates.find(
+      (c) => c.sense === LineSense.OUTBOUND,
+    );
+    if (!outbound) return candidates[0];
+
+    const terminalA = outbound.polyline[0];
+    const terminalB = outbound.polyline[outbound.polyline.length - 1];
+
+    const distOA = this.haversine(origin, terminalA);
+    const distDB = this.haversine(destination, terminalB);
+    const distOB = this.haversine(origin, terminalB);
+    const distDA = this.haversine(destination, terminalA);
+
+    const preferOutbound = distOA + distDB < distOB + distDA;
+
+    return preferOutbound
+      ? outbound
+      : candidates.find((c) => c.sense === LineSense.RETURN) ||
+          candidates[candidates.length - 1];
+  }
+
   // ─── Step 2: Rutas directas ────────────────────────────────────────────────
 
   private buildDirectRoutes(
@@ -233,6 +295,13 @@ export class SearchService {
     destination: [number, number],
     includePolylines: boolean,
   ): JourneyOption[] {
+    // Deduplicar: para mismo código, preferir el sentido que coincida con la dirección del viaje
+    const preferredOrigin = this.deduplicateBySense(
+      originCandidates,
+      origin,
+      destination,
+    );
+
     const options: JourneyOption[] = [];
 
     console.log('=== DIRECT ROUTES DEBUG ===');
@@ -259,7 +328,7 @@ export class SearchService {
       })),
     );
 
-    for (const originLine of originCandidates) {
+    for (const originLine of preferredOrigin) {
       // La línea debe aparecer también en los candidatos de destino
       if (!destCandidateIds.has(originLine.id)) {
         console.log(
@@ -738,7 +807,10 @@ export class SearchService {
     };
   }
 
-  private rankAndSlice(options: JourneyOption[]): JourneyOption[] {
+  private rankAndSlice(
+    options: JourneyOption[],
+    maxResults: number = MAX_RESULTS,
+  ): JourneyOption[] {
     const seen = new Set<string>();
 
     const bestDirectTime = options
@@ -773,7 +845,7 @@ export class SearchService {
         if (a.transfers !== b.transfers) return a.transfers - b.transfers;
         return a.totalWalk - b.totalWalk;
       })
-      .slice(0, MAX_RESULTS);
+      .slice(0, maxResults);
   }
 
   // ─── Helpers de parsing ───────────────────────────────────────────────────

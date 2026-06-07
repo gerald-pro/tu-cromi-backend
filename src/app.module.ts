@@ -29,7 +29,10 @@ import { IssueReportsModule } from './modules/issue-reports/issue-reports.module
       database: process.env.DATABASE_NAME || 'tucromi',
       username: process.env.DATABASE_USER || 'postgres',
       password: process.env.DATABASE_PASSWORD || 'postgres',
-      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      ssl:
+        process.env.DATABASE_SSL === 'true'
+          ? { rejectUnauthorized: false }
+          : false,
       autoLoadEntities: true,
       synchronize: false,
     }),

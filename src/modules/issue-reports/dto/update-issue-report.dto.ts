@@ -7,7 +7,10 @@ export class UpdateIssueReportDto {
   @IsOptional()
   status?: IssueReportStatus;
 
-  @ApiPropertyOptional({ description: 'Notas del administrador', example: 'Verificado en terreno' })
+  @ApiPropertyOptional({
+    description: 'Notas del administrador',
+    example: 'Verificado en terreno',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)

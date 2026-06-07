@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Line } from './line.entity';
+import { LineSense } from './line-sense.enum';
 
 @Injectable()
 export class LinesService {
@@ -49,7 +50,11 @@ export class LinesService {
 
   async findOpposite(code: string): Promise<Line | null> {
     const line = await this.findByCode(code);
-    if (!line?.parentLineId) return null;
-    return this.findById(line.parentLineId);
+    if (!line) return null;
+    const oppositeSense =
+      line.sense === LineSense.OUTBOUND ? LineSense.RETURN : LineSense.OUTBOUND;
+    return this.lineRepository.findOne({
+      where: { code: line.code, sense: oppositeSense },
+    });
   }
 }

@@ -36,7 +36,11 @@ export class IssueReportsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Crear reporte de problema' })
-  @ApiResponse({ status: 201, description: 'Reporte creado', type: IssueReportDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Reporte creado',
+    type: IssueReportDto,
+  })
   @ApiResponse({ status: 404, description: 'Línea no encontrada' })
   async create(
     @CurrentUser('id') userId: number,
@@ -50,10 +54,16 @@ export class IssueReportsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Obtener mis reportes' })
-  @ApiResponse({ status: 200, description: 'Lista de reportes', type: [IssueReportDto] })
-  async findMyReports(@CurrentUser('id') userId: number): Promise<IssueReportDto[]> {
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de reportes',
+    type: [IssueReportDto],
+  })
+  async findMyReports(
+    @CurrentUser('id') userId: number,
+  ): Promise<IssueReportDto[]> {
     const reports = await this.issueReportsService.findByUser(userId);
-    return reports.map(r => this.toDto(r));
+    return reports.map((r) => this.toDto(r));
   }
 
   @Get()
@@ -63,7 +73,11 @@ export class IssueReportsController {
   @ApiQuery({ name: 'status', required: false, enum: IssueReportStatus })
   @ApiQuery({ name: 'type', required: false })
   @ApiQuery({ name: 'lineId', required: false, type: Number })
-  @ApiResponse({ status: 200, description: 'Lista de reportes', type: [IssueReportDto] })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de reportes',
+    type: [IssueReportDto],
+  })
   async findAll(
     @Query('status') status?: IssueReportStatus,
     @Query('type') type?: string,
@@ -74,16 +88,22 @@ export class IssueReportsController {
       type,
       lineId: lineId ? parseInt(lineId, 10) : undefined,
     });
-    return reports.map(r => this.toDto(r));
+    return reports.map((r) => this.toDto(r));
   }
 
   @Get(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Obtener reporte por ID' })
-  @ApiResponse({ status: 200, description: 'Reporte encontrado', type: IssueReportDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Reporte encontrado',
+    type: IssueReportDto,
+  })
   @ApiResponse({ status: 404, description: 'Reporte no encontrado' })
-  async findById(@Param('id', ParseIntPipe) id: number): Promise<IssueReportDto> {
+  async findById(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<IssueReportDto> {
     const report = await this.issueReportsService.findById(id);
     return this.toDto(report);
   }
@@ -92,7 +112,11 @@ export class IssueReportsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, AdminGuard)
   @ApiOperation({ summary: 'Actualizar estado del reporte (admin)' })
-  @ApiResponse({ status: 200, description: 'Estado actualizado', type: IssueReportDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Estado actualizado',
+    type: IssueReportDto,
+  })
   @ApiResponse({ status: 404, description: 'Reporte no encontrado' })
   async updateStatus(
     @Param('id', ParseIntPipe) id: number,

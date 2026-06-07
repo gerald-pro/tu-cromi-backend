@@ -40,10 +40,15 @@ const dataSource = new DataSource({
   password: process.env.DATABASE_PASSWORD || 'postgres',
   entities: [Line, Favorite, Review, User],
   ssl:
-    process.env.DATABASE_SSL === 'true'
-      ? { rejectUnauthorized: false }
-      : false,
+    process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
 });
+
+function reverseMultiLineString(coords: number[][][]): number[][][] {
+  return coords
+    .slice()
+    .reverse()
+    .map((seg) => seg.slice().reverse());
+}
 
 async function seedLines(): Promise<void> {
   await dataSource.initialize();
@@ -52,20 +57,28 @@ async function seedLines(): Promise<void> {
   const lineRepository = dataSource.getRepository(Line);
   const existingLines = await lineRepository.count();
 
+  const force = process.argv.includes('--force');
+
   if (existingLines > 0) {
-    console.log(
-      `Lines already seeded (${existingLines} found). Use --force to reseed by deleting first.`,
-    );
-    await dataSource.destroy();
-    return;
+    if (force) {
+      console.log(`Deleting ${existingLines} existing lines (--force)...`);
+      await dataSource.query('TRUNCATE TABLE lines CASCADE');
+    } else {
+      console.log(
+        `Lines already seeded (${existingLines} found). Use --force to reseed by deleting first.`,
+      );
+      await dataSource.destroy();
+      return;
+    }
   }
 
-  const geoJsonPath = path.resolve(
-    __dirname,
-    '../data/rutas_scz.geojson',
-  );
-  if (!fs.existsSync(geoJsonPath)) {
-    console.error(`GeoJSON file not found: ${geoJsonPath}`);
+  const candidates = [
+    path.resolve(__dirname, '../data/rutas_scz.geojson'),
+    path.resolve(process.cwd(), 'src/data/rutas_scz.geojson'),
+  ];
+  const geoJsonPath = candidates.find(fs.existsSync);
+  if (!geoJsonPath) {
+    console.error('GeoJSON file not found. Tried:', candidates.join(', '));
     process.exit(1);
   }
 
@@ -82,13 +95,15 @@ async function seedLines(): Promise<void> {
     line.objectid = feature.properties.objectid;
     line.code = feature.properties.nombre;
     line.sense =
-      feature.properties.sentido === 1
-        ? LineSense.OUTBOUND
-        : LineSense.RETURN;
+      feature.properties.sentido === 1 ? LineSense.OUTBOUND : LineSense.RETURN;
     line.syndicate = `Sindicato ${feature.properties.sindicato}`;
+    const coords = feature.geometry.coordinates;
     line.geoJson = {
       type: 'MultiLineString',
-      coordinates: feature.geometry.coordinates,
+      coordinates:
+        feature.properties.sentido === 1
+          ? coords
+          : reverseMultiLineString(coords),
     };
     lines.push(line);
   }

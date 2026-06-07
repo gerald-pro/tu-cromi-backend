@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, ParseIntPipe, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  ParseIntPipe,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -34,8 +42,14 @@ export class ReviewsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Obtener mis reseñas' })
-  @ApiResponse({ status: 200, description: 'Lista de reseñas', type: [MyReviewDto] })
-  async findMyReviews(@CurrentUser('id') userId: number): Promise<MyReviewDto[]> {
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de reseñas',
+    type: [MyReviewDto],
+  })
+  async findMyReviews(
+    @CurrentUser('id') userId: number,
+  ): Promise<MyReviewDto[]> {
     return await this.reviewsService.findByUser(userId);
   }
 
@@ -61,7 +75,10 @@ export class ReviewsController {
   @ApiResponse({ status: 200, description: 'Reseña eliminada' })
   @ApiResponse({ status: 404, description: 'Reseña no encontrada' })
   @ApiResponse({ status: 403, description: 'Permiso denegado' })
-  async delete(@CurrentUser('id') userId: number, @Param('id', ParseIntPipe) id: number) {
+  async delete(
+    @CurrentUser('id') userId: number,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     await this.reviewsService.delete(userId, id);
     return { message: 'Reseña eliminada' };
   }

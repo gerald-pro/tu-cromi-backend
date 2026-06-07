@@ -20,6 +20,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "node dist/database/seed-lines.js && node dist/database/seed-reviews.js",
+"seed:force": "node dist/database/seed-lines.js --force && node dist/database/seed-reviews.js --force",
     "db:migrate": "node dist/database/run-migrations.js",
     "compute:transfers": "node dist/database/compute-transfers.js"
   },

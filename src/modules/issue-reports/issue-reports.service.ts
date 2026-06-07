@@ -20,9 +20,14 @@ export class IssueReportsService {
     private readonly lineRepository: Repository<Line>,
   ) {}
 
-  async create(userId: number | null, dto: CreateIssueReportDto): Promise<IssueReport> {
+  async create(
+    userId: number | null,
+    dto: CreateIssueReportDto,
+  ): Promise<IssueReport> {
     if (dto.lineId) {
-      const line = await this.lineRepository.findOne({ where: { id: dto.lineId } });
+      const line = await this.lineRepository.findOne({
+        where: { id: dto.lineId },
+      });
       if (!line) {
         throw new NotFoundException('Línea no encontrada');
       }
@@ -117,7 +122,9 @@ export class IssueReportsService {
     }
 
     if (report.userId !== userId) {
-      throw new ForbiddenException('No tienes permiso para eliminar este reporte');
+      throw new ForbiddenException(
+        'No tienes permiso para eliminar este reporte',
+      );
     }
 
     await this.issueReportRepository.softDelete(reportId);
