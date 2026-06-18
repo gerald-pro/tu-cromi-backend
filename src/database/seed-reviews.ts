@@ -50,7 +50,9 @@ async function seedReviews(): Promise<void> {
       console.log(`Deleting ${existingReviews} existing reviews (--force)...`);
       await reviewRepository.delete({});
     } else {
-      console.log(`Reviews already seeded (${existingReviews} found). Skipping.`);
+      console.log(
+        `Reviews already seeded (${existingReviews} found). Skipping.`,
+      );
       await dataSource.destroy();
       return;
     }

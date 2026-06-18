@@ -1,12 +1,12 @@
-import {
-  Controller,
-  Get,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
 import { spawn } from 'child_process';
 import * as path from 'path';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 import { TransferCacheService } from './transfer-cache.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
@@ -37,9 +37,14 @@ export class TransfersAdminController {
   @Post('reload')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, AdminGuard)
-  @ApiOperation({ summary: 'Recargar caché de trasbordos desde la base de datos' })
+  @ApiOperation({
+    summary: 'Recargar caché de trasbordos desde la base de datos',
+  })
   @ApiResponse({ status: 200, description: 'Caché recargada correctamente' })
-  @ApiResponse({ status: 403, description: 'Acceso de administrador requerido' })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso de administrador requerido',
+  })
   async reload() {
     await this.transferCache.reload();
     return { message: 'Caché de trasbordos recargada correctamente' };
@@ -51,7 +56,10 @@ export class TransfersAdminController {
   @ApiOperation({ summary: 'Calcular trasbordos (asíncrono)' })
   @ApiResponse({ status: 200, description: 'Cálculo iniciado' })
   @ApiResponse({ status: 409, description: 'Ya hay un cálculo en ejecución' })
-  @ApiResponse({ status: 403, description: 'Acceso de administrador requerido' })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso de administrador requerido',
+  })
   async compute() {
     if (this.state.running) {
       return {
@@ -136,7 +144,10 @@ export class TransfersAdminController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   @ApiOperation({ summary: 'Estado del cálculo de trasbordos' })
   @ApiResponse({ status: 200, description: 'Estado actual' })
-  @ApiResponse({ status: 403, description: 'Acceso de administrador requerido' })
+  @ApiResponse({
+    status: 403,
+    description: 'Acceso de administrador requerido',
+  })
   async status() {
     return {
       running: this.state.running,

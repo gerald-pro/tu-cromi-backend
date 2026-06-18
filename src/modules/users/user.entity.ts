@@ -17,8 +17,11 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
-  password: string;
+  @Column({ nullable: true })
+  password: string | null;
+
+  @Column({ name: 'google_id', nullable: true })
+  googleId?: string;
 
   @OneToMany(() => Favorite, (favorite) => favorite.user)
   favorites: Favorite[];

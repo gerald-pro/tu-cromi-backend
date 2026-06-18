@@ -251,9 +251,7 @@ export class SearchService {
       if (sameCode.length === 1) {
         result.push(sameCode[0]);
       } else {
-        result.push(
-          this.choosePreferredSense(sameCode, origin, destination),
-        );
+        result.push(this.choosePreferredSense(sameCode, origin, destination));
       }
     }
     return result;
@@ -264,9 +262,7 @@ export class SearchService {
     origin: [number, number],
     destination: [number, number],
   ): CandidateLine {
-    const outbound = candidates.find(
-      (c) => c.sense === LineSense.OUTBOUND,
-    );
+    const outbound = candidates.find((c) => c.sense === LineSense.OUTBOUND);
     if (!outbound) return candidates[0];
 
     const terminalA = outbound.polyline[0];

@@ -20,7 +20,7 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "seed": "node dist/database/seed-lines.js && node dist/database/seed-reviews.js",
-"seed:force": "node dist/database/seed-lines.js --force && node dist/database/seed-reviews.js --force",
+    "seed:force": "node dist/database/seed-lines.js --force && node dist/database/seed-reviews.js --force",
     "db:migrate": "node dist/database/run-migrations.js",
     "compute:transfers": "node dist/database/compute-transfers.js"
   },
@@ -37,6 +37,7 @@
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
     "cli-progress": "^3.12.0",
+    "google-auth-library": "^10.7.0",
     "nest-commander": "^3.20.1",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
