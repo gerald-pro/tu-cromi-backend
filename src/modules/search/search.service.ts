@@ -136,7 +136,7 @@ export class SearchService {
 
     // 3. Rutas con 1 trasbordo
     if (maxTransfers >= 1) {
-      const oneTransferRoutes = this.buildOneTransferRoutes(
+      const oneTransferRoutes = await this.buildOneTransferRoutes(
         originCandidates,
         destCandidateIds,
         destCandidateMap,
@@ -149,7 +149,7 @@ export class SearchService {
 
     // 4. Rutas con 2 trasbordos
     if (maxTransfers >= 2) {
-      const twoTransferRoutes = this.buildTwoTransferRoutes(
+      const twoTransferRoutes = await this.buildTwoTransferRoutes(
         originCandidates,
         destCandidateIds,
         destCandidateMap,
@@ -400,19 +400,19 @@ export class SearchService {
 
   // ─── Step 3: Rutas con 1 trasbordo ────────────────────────────────────────
 
-  private buildOneTransferRoutes(
+  private async buildOneTransferRoutes(
     originCandidates: CandidateLine[],
     destCandidateIds: Set<number>,
     destCandidateMap: Map<number, CandidateLine>,
     origin: [number, number],
     destination: [number, number],
     includePolylines: boolean,
-  ): JourneyOption[] {
+  ): Promise<JourneyOption[]> {
     const options: JourneyOption[] = [];
 
     for (const line1 of originCandidates) {
       // Consultar transfers desde línea 1
-      const transfers = this.transferCache.getTransfersFrom(line1.id);
+      const transfers = await this.transferCache.getTransfersFrom(line1.id);
 
       for (const transfer of transfers) {
         // ¿La línea 2 llega al destino?
@@ -521,21 +521,21 @@ export class SearchService {
 
   // ─── Step 4: Rutas con 2 trasbordos ───────────────────────────────────────
 
-  private buildTwoTransferRoutes(
+  private async buildTwoTransferRoutes(
     originCandidates: CandidateLine[],
     destCandidateIds: Set<number>,
     destCandidateMap: Map<number, CandidateLine>,
     origin: [number, number],
     destination: [number, number],
     includePolylines: boolean,
-  ): JourneyOption[] {
+  ): Promise<JourneyOption[]> {
     const options: JourneyOption[] = [];
     let minEstimatedTime = Infinity; // best (lowest) total time seen so far; used to prune hopeless 2-transfer candidates
 
     for (const line1 of originCandidates) {
       if (options.length >= MAX_TWO_TRANSFER_OPTIONS) break;
 
-      const transfers1 = this.transferCache.getTransfersFrom(line1.id);
+      const transfers1 = await this.transferCache.getTransfersFrom(line1.id);
 
       for (const transfer1 of transfers1) {
         if (options.length >= MAX_TWO_TRANSFER_OPTIONS) break;
@@ -556,7 +556,7 @@ export class SearchService {
         // Evitar transfers a la misma línea (mismo código)
         if (line2Data.code === line1.code) continue;
 
-        const transfers2 = this.transferCache.getTransfersFrom(transfer1.lineBId);
+        const transfers2 = await this.transferCache.getTransfersFrom(transfer1.lineBId);
 
         for (const transfer2 of transfers2) {
           if (options.length >= MAX_TWO_TRANSFER_OPTIONS) break;
