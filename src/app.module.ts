@@ -39,7 +39,7 @@ import { OfflineModule } from './modules/offline/offline.module';
           type: 'better-sqlite3',
           database: dbFile,
           autoLoadEntities: true,
-          synchronize: process.env.NODE_ENV !== 'production',
+          synchronize: process.env.DB_SYNCHRONIZE === 'true' || process.env.NODE_ENV !== 'production',
         };
       },
     }),
