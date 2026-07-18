@@ -1,14 +1,15 @@
+// BACKUP: original Postgres+PostGIS version, not used. See compute-transfers.sqlite.ts (if/when reimplemented in SQLite).
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
-import { Line } from '../modules/lines/line.entity';
-import { LineTransfer } from '../modules/transfers/line-transfer.entity';
-import { Favorite } from '../modules/favorites/favorite.entity';
-import { Review } from '../modules/reviews/review.entity';
-import { User } from '../modules/users/user.entity';
+import { Line } from '../../modules/lines/line.entity';
+import { LineTransfer } from '../../modules/transfers/line-transfer.entity';
+import { Favorite } from '../../modules/favorites/favorite.entity';
+import { Review } from '../../modules/reviews/review.entity';
+import { User } from '../../modules/users/user.entity';
 
-dotenv.config({ path: path.join(__dirname, '../../.env') });
+dotenv.config({ path: path.join(__dirname, '../../../.env') });
 
 const TRANSFER_RADIUS_METERS = 300;
 const BATCH_SIZE = 500;

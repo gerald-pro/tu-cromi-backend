@@ -26,20 +26,14 @@ export class Line {
   @Column({ nullable: true })
   color: string;
 
-  @Column({ name: 'geo_json', type: 'jsonb', nullable: true })
+  @Column({ name: 'geo_json', type: 'simple-json', nullable: true })
   geoJson: object;
 
-  @Column({
-    name: 'geom',
-    type: 'geometry',
-    spatialFeatureType: 'MultiLineString',
-    srid: 4326,
-    nullable: true,
-  })
-  geom: object;
+  @Column({ name: 'geom', type: 'text', nullable: true })
+  geom: string;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: LineSense,
     default: LineSense.OUTBOUND,
   })

@@ -10,8 +10,8 @@ import {
 import { Line } from '../lines/line.entity';
 
 @Entity('line_transfers')
-@Index(['lineAId', 'lineBId'])
-@Index(['lineBId', 'lineAId'])
+@Index('idx_line_transfers_a_b', ['lineAId', 'lineBId'])
+@Index('idx_line_transfers_b_a', ['lineBId', 'lineAId'])
 export class LineTransfer {
   @PrimaryGeneratedColumn()
   id: number;

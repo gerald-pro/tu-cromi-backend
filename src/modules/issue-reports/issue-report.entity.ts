@@ -24,17 +24,17 @@ export class IssueReport {
   @Column({ name: 'line_id', nullable: true })
   lineId: number;
 
-  @Column({ type: 'enum', enum: IssueReportType })
+  @Column({ type: 'simple-enum', enum: IssueReportType })
   type: IssueReportType;
 
   @Column({ type: 'text' })
   description: string;
 
-  @Column({ type: 'jsonb', nullable: true })
+  @Column({ type: 'simple-json', nullable: true })
   location: object;
 
   @Column({
-    type: 'enum',
+    type: 'simple-enum',
     enum: IssueReportStatus,
     default: IssueReportStatus.PENDING,
   })

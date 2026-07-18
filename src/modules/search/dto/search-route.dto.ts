@@ -27,6 +27,17 @@ export class SearchRouteDto {
   destination: string;
 
   @ApiPropertyOptional({
+    example: 400,
+    description:
+      'Radio de caminata desde el origen en metros (default: 400, max: 1000)',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(1000)
+  originRadius?: number;
+
+  @ApiPropertyOptional({
     example: true,
     description: 'Incluir polilíneas en la respuesta (default: true)',
   })

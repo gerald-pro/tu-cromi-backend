@@ -4,6 +4,7 @@ import {
   ArgumentsHost,
   HttpException,
   HttpStatus,
+  Logger,
   UnauthorizedException,
   ForbiddenException,
   NotFoundException,
@@ -15,6 +16,8 @@ import { ErrorCode } from '../enums/error-codes.enum';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
@@ -37,6 +40,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       }
 
       code = this.mapStatusToCode(exception, status);
+    } else {
+      this.logger.error(
+        `Unhandled exception: ${(exception as Error).message}`,
+        (exception as Error).stack,
+      );
     }
 
     response.status(status).json({

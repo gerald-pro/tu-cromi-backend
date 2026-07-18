@@ -3,6 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { PassportModule } from '@nestjs/passport';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
+import { existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import configuration from './config/configuration';
 import { HttpExceptionFilter, ResponseInterceptor } from './common';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -14,6 +16,8 @@ import { SearchModule } from './modules/search/search.module';
 import { TransfersModule } from './modules/transfers/transfers.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { IssueReportsModule } from './modules/issue-reports/issue-reports.module';
+import { UpdateModule } from './modules/update/update.module';
+import { OfflineModule } from './modules/offline/offline.module';
 
 @Module({
   imports: [
@@ -22,19 +26,22 @@ import { IssueReportsModule } from './modules/issue-reports/issue-reports.module
       isGlobal: true,
       load: [configuration],
     }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: process.env.DATABASE_HOST || 'localhost',
-      port: parseInt(process.env.DATABASE_PORT || '5432', 10),
-      database: process.env.DATABASE_NAME || 'tucromi',
-      username: process.env.DATABASE_USER || 'postgres',
-      password: process.env.DATABASE_PASSWORD || 'postgres',
-      ssl:
-        process.env.DATABASE_SSL === 'true'
-          ? { rejectUnauthorized: false }
-          : false,
-      autoLoadEntities: true,
-      synchronize: false,
+    TypeOrmModule.forRootAsync({
+      useFactory: () => {
+        const dbFile =
+          process.env.DATABASE_FILE ||
+          join(process.cwd(), 'data', 'tucromi.sqlite');
+        const dbDir = join(dbFile, '..');
+        if (!existsSync(dbDir)) {
+          mkdirSync(dbDir, { recursive: true });
+        }
+        return {
+          type: 'better-sqlite3',
+          database: dbFile,
+          autoLoadEntities: true,
+          synchronize: process.env.NODE_ENV !== 'production',
+        };
+      },
     }),
     AuthModule,
     UsersModule,
@@ -44,6 +51,8 @@ import { IssueReportsModule } from './modules/issue-reports/issue-reports.module
     TransfersModule,
     ReviewsModule,
     IssueReportsModule,
+    UpdateModule,
+    OfflineModule,
   ],
   providers: [
     {
