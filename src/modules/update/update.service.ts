@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { Readable } from 'node:stream';
@@ -25,7 +25,7 @@ interface MetaRecord {
 }
 
 @Injectable()
-export class UpdateService {
+export class UpdateService implements OnModuleInit {
   private readonly logger = new Logger(UpdateService.name);
   private readonly updates = new Map<string, UpdateRecord>();
 
@@ -33,6 +33,41 @@ export class UpdateService {
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly transferCache: TransferCacheService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    // Fire-and-forget: don't block boot waiting for download
+    this.autoInstallIfEmpty();
+  }
+
+  private async autoInstallIfEmpty(): Promise<void> {
+    const dataUrl = process.env.DEFAULT_DATA_URL;
+    if (!dataUrl) return;
+
+    try {
+      const rows = await this.dataSource.query(
+        'SELECT COUNT(*) AS cnt FROM lines',
+      );
+      if (rows[0]?.cnt > 0) {
+        this.logger.log('Data already present — skipping auto-install');
+        return;
+      }
+    } catch {
+      this.logger.log('Table not ready yet — will auto-install');
+    }
+
+    this.logger.log(`Auto-installing from DEFAULT_DATA_URL: ${dataUrl}`);
+
+    try {
+      const dto = new InstallUpdateDto();
+      dto.dataDownloadUrl = dataUrl;
+      // install() fires the download in background and returns immediately
+      await this.install(dto);
+    } catch (error) {
+      this.logger.error(
+        `Auto-install failed: ${(error as Error).message}`,
+      );
+    }
+  }
 
   async install(dto: InstallUpdateDto) {
     try {
